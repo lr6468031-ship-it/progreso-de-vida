@@ -33,7 +33,7 @@ class PlannerStore(context: Context) {
                 completedDates = done,
                 category = item.optString("category", "Hábitos"),
                 durationMinutes = item.optInt("durationMinutes", 0),
-                missedDates = item.optJSONArray("missedDates").let { a -> (0 until (a?.length() ?: 0)).map { a!!.optString(it) }.toSet()
+                missedDates = item.optJSONArray("missedDates").let { a -> (0 until (a?.length() ?: 0)).map { a!!.optString(it) }.toSet() }
             )
         }
         return result.sortedBy { it.time }
