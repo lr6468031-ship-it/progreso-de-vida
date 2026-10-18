@@ -9,13 +9,13 @@ import java.util.Date
 import java.util.Locale
 
 class PlannerStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("progreso_vida_data", Context.MODE_PRIVATE)
+    private val prefs = StorageGuard.prefs(context)
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     fun todayKey(): String = dayFormat.format(Date())
 
     fun tasks(): List<RecurringTask> {
-        val raw = prefs.getString("recurring_tasks", "[]") ?: "[]"
+        val raw = StorageGuard.readArrayString(prefs, "recurring_tasks")
         val source = try { JSONArray(raw) } catch (_: Exception) { JSONArray() }
         val result = mutableListOf<RecurringTask>()
         for (i in 0 until source.length()) {
@@ -63,7 +63,7 @@ class PlannerStore(context: Context) {
 
     fun scheduledFor(task: RecurringTask, cal: Calendar): Boolean {
         val key = dayFormat.format(cal.time)
-        if (key < task.startDate) return false
+        if (task.startDate.isNotBlank() && key < task.startDate) return false
         return when (task.recurrence) {
             "Lun, mié, vie" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.MONDAY, Calendar.WEDNESDAY, Calendar.FRIDAY)
             "Mar, jue, sáb" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.TUESDAY, Calendar.THURSDAY, Calendar.SATURDAY)
