@@ -12,7 +12,6 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -30,15 +29,25 @@ class StatsActivity : Activity() {
     }
 
     private fun buildScreen(): View {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(UiKit.blue) }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(UiKit.blue)
+        }
         val scroll = ScrollView(this).apply { isFillViewport = true }
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(36)) }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(36))
+        }
         scroll.addView(body, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         header.addView(Button(this).apply {
-            text = "‹"; textSize = 28f; setTextColor(Color.WHITE); background = UiKit.rounded(this@StatsActivity, Color.TRANSPARENT, 14); setOnClickListener { finish() }
+            text = "‹"
+            textSize = 28f
+            setTextColor(Color.WHITE)
+            background = UiKit.rounded(this@StatsActivity, Color.TRANSPARENT, 14)
+            setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(dp(52), dp(52)))
         header.addView(UiKit.label(this, "Estadísticas", 32f, Color.WHITE, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         body.addView(header)
@@ -82,10 +91,12 @@ class StatsActivity : Activity() {
     private fun chartCard(days: List<ProgressDay?>, labels: List<String>): View = UiKit.card(this).apply {
         addView(UiKit.label(this@StatsActivity, "Progreso diario", 20f, UiKit.ink, true))
         addView(UiKit.label(this@StatsActivity, "Últimos 7 días", 12f, UiKit.muted), marginTop(2))
-        addView(ProgressChartView(this@StatsActivity, days.map { it?.totalHours ?: 0.0 }, labels), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(240)).apply { topMargin = dp(14) })
+        val chartParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(240))
+        chartParams.topMargin = dp(14)
+        addView(ProgressChartView(this@StatsActivity, days.map { it?.totalHours ?: 0.0 }, labels), chartParams)
         val legend = LinearLayout(this@StatsActivity).apply { orientation = LinearLayout.HORIZONTAL }
         legend.addView(UiKit.pill(this@StatsActivity, "● Horas", UiKit.blueSoft, UiKit.blue))
-        legend.addView(UiKit.pill(this@StatsActivity, "● Activo", UiKit.greenSoft, UiKit.green), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
+        legend.addView(UiKit.pill(this@StatsActivity, "● Activo", UiKit.greenSoft, UiKit.green), wrapStart(8))
         addView(legend, marginTop(10))
     }
 
@@ -98,7 +109,8 @@ class StatsActivity : Activity() {
     }
 
     private fun areaRow(label: String, value: Double, color: Int): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
         addView(UiKit.label(this@StatsActivity, label, 14f, UiKit.ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(UiKit.pill(this@StatsActivity, hours(value), Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)), color))
     }
@@ -107,8 +119,20 @@ class StatsActivity : Activity() {
         val n = if (value % 1.0 == 0.0) value.toLong().toString() else String.format(Locale.US, "%.1f", value)
         return "$n h"
     }
-    private fun marginTop(value: Int) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
-    private fun dp(value: Int) = UiKit.run { this@StatsActivity.dp(value) }
+
+    private fun marginTop(value: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(value)
+        return params
+    }
+
+    private fun wrapStart(value: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.marginStart = dp(value)
+        return params
+    }
+
+    private fun dp(value: Int): Int = UiKit.run { this@StatsActivity.dp(value) }
 }
 
 private class ProgressChartView(
@@ -116,11 +140,30 @@ private class ProgressChartView(
     private val values: List<Double>,
     private val labels: List<String>
 ) : View(context) {
-    private val bluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = UiKit.blue; strokeWidth = 4f * resources.displayMetrics.density; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
-    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#DCE9FF"); style = Paint.Style.FILL }
-    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = UiKit.line; strokeWidth = resources.displayMetrics.density }
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = UiKit.muted; textSize = 11f * resources.displayMetrics.scaledDensity; textAlign = Paint.Align.CENTER }
-    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = UiKit.blue; style = Paint.Style.FILL }
+    private val bluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = UiKit.blue
+        strokeWidth = 4f * resources.displayMetrics.density
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#DCE9FF")
+        style = Paint.Style.FILL
+    }
+    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = UiKit.line
+        strokeWidth = resources.displayMetrics.density
+    }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = UiKit.muted
+        textSize = 11f * resources.displayMetrics.scaledDensity
+        textAlign = Paint.Align.CENTER
+    }
+    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = UiKit.blue
+        style = Paint.Style.FILL
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -140,8 +183,14 @@ private class ProgressChartView(
             x to y
         }
         val path = Path()
-        points.forEachIndexed { i, p -> if (i == 0) path.moveTo(p.first, p.second) else path.lineTo(p.first, p.second) }
-        val fill = Path(path).apply { lineTo(points.last().first, bottom); lineTo(points.first().first, bottom); close() }
+        points.forEachIndexed { i, p ->
+            if (i == 0) path.moveTo(p.first, p.second) else path.lineTo(p.first, p.second)
+        }
+        val fill = Path(path).apply {
+            lineTo(points.last().first, bottom)
+            lineTo(points.first().first, bottom)
+            close()
+        }
         canvas.drawPath(fill, fillPaint)
         canvas.drawPath(path, bluePaint)
         points.forEach { (x, y) -> canvas.drawCircle(x, y, 5f * resources.displayMetrics.density, dotPaint) }
