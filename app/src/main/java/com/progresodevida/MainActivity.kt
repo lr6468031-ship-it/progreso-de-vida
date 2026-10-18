@@ -117,7 +117,7 @@ class MainActivity : Activity() {
         addView(UiKit.label(this@MainActivity, if (day == null) "Aún sin registro" else hours(day.totalHours), 30f, Color.WHITE, true), marginTop(5))
         addView(UiKit.label(this@MainActivity, if (day == null) "Registra lo que hiciste para empezar a construir tus estadísticas." else "🏋 ${hours(day.exerciseHours)}    🎵 ${hours(day.musicHours)}    💼 ${hours(day.workHours)}", 12f, Color.WHITE), marginTop(4))
         val pill = UiKit.pill(this@MainActivity, "🔥 Racha: $streak días", Color.argb(45, 255, 255, 255), Color.WHITE)
-        addView(pill, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14) })
+        addView(pill, wrapTop(14))
     }
 
     private fun todayTasksCard(done: Int, total: Int): View = UiKit.card(this).apply {
@@ -128,7 +128,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = UiKit.rounded(this@MainActivity, if (total > 0 && done == total) UiKit.green else UiKit.blue, 24)
-        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(12) })
+        }, squareEnd(48, 48, 12))
         row.addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.VERTICAL
             addView(UiKit.label(this@MainActivity, if (total == 0) "Sin tareas programadas" else "$done/$total completadas", 17f, UiKit.ink, true))
@@ -147,7 +147,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setTextColor(accent)
             background = UiKit.rounded(this@MainActivity, soft, 18)
-        }, LinearLayout.LayoutParams(dp(56), dp(56)).apply { marginEnd = dp(13) })
+        }, squareEnd(56, 56, 13))
         row.addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.VERTICAL
             addView(UiKit.label(this@MainActivity, title, 17f, UiKit.ink, true))
@@ -164,6 +164,24 @@ class MainActivity : Activity() {
 
     private fun number(value: Double): String = if (value % 1.0 == 0.0) value.toLong().toString() else String.format(Locale.US, "%.1f", value)
     private fun hours(value: Double): String = "${number(value)} h"
-    private fun marginTop(value: Int) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
-    private fun dp(value: Int) = UiKit.run { this@MainActivity.dp(value) }
+
+    private fun marginTop(value: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(value)
+        return params
+    }
+
+    private fun wrapTop(value: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(value)
+        return params
+    }
+
+    private fun squareEnd(width: Int, height: Int, end: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(dp(width), dp(height))
+        params.marginEnd = dp(end)
+        return params
+    }
+
+    private fun dp(value: Int): Int = UiKit.run { this@MainActivity.dp(value) }
 }
