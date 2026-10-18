@@ -82,10 +82,10 @@ class MainActivity : Activity() {
         body.addView(featureCard(
             icon = "▥",
             title = "Estadísticas",
-            subtitle = "Semana, mes, año, rachas y horas",
+            subtitle = "Semana, rachas, horas y evolución",
             accent = UiKit.green,
             soft = UiKit.greenSoft
-        ) { startActivity(Intent(this, ProgressActivity::class.java)) }, marginTop(10))
+        ) { startActivity(Intent(this, StatsActivity::class.java)) }, marginTop(10))
 
         body.addView(featureCard(
             icon = "★",
@@ -93,7 +93,7 @@ class MainActivity : Activity() {
             subtitle = "$activeGoals activas · estudios, habilidades y proyectos",
             accent = UiKit.orange,
             soft = UiKit.orangeSoft
-        ) { startActivity(Intent(this, SkillGoalsActivity::class.java)) }, marginTop(10))
+        ) { startActivity(Intent(this, GoalsActivity::class.java)) }, marginTop(10))
 
         body.addView(UiKit.section(this, "Registrar"), marginTop(24))
         body.addView(Button(this).apply {
