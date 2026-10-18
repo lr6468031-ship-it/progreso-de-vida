@@ -25,7 +25,7 @@ import java.util.Locale
 class PlannerActivity : Activity() {
     private lateinit var store: PlannerStore
     private lateinit var body: LinearLayout
-    private var month = Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) }
+    private var month: Calendar = Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,7 +119,7 @@ class PlannerActivity : Activity() {
                 background = UiKit.rounded(this@PlannerActivity, if (done) UiKit.green else Color.WHITE, 24, if (done) UiKit.green else UiKit.line, 2)
                 setOnClickListener { store.toggle(task.id, date); render() }
             }
-            row.addView(check, LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginEnd = dp(12) })
+            row.addView(check, squareEnd(46, 46, 12))
             row.addView(LinearLayout(this@PlannerActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(UiKit.label(this@PlannerActivity, task.title, 17f, UiKit.ink, true))
@@ -133,13 +133,15 @@ class PlannerActivity : Activity() {
                 setOnClickListener { taskMenu(task) }
             }, LinearLayout.LayoutParams(dp(40), dp(46)))
             addView(row)
-            addView(LinearLayout(this@PlannerActivity).apply {
+
+            val chips = LinearLayout(this@PlannerActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, dp(12), 0, 0)
-                addView(UiKit.pill(this@PlannerActivity, "📅 ${prettyDate(task.startDate)}"))
-                addView(UiKit.pill(this@PlannerActivity, "⏰ ${task.time}"), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
-                if (task.reminder) addView(UiKit.pill(this@PlannerActivity, "🔔", UiKit.blueSoft, UiKit.blue), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
-            })
+            }
+            chips.addView(UiKit.pill(this@PlannerActivity, "📅 ${prettyDate(task.startDate)}"))
+            chips.addView(UiKit.pill(this@PlannerActivity, "⏰ ${task.time}"), wrapStart(8))
+            if (task.reminder) chips.addView(UiKit.pill(this@PlannerActivity, "🔔", UiKit.blueSoft, UiKit.blue), wrapStart(8))
+            addView(chips)
         }
     }
 
@@ -155,7 +157,11 @@ class PlannerActivity : Activity() {
             val scheduled = tasks.filter { store.scheduledFor(it, day) }
             val allDone = scheduled.isNotEmpty() && scheduled.all { it.completedDates.contains(key) }
             val missed = day.before(Calendar.getInstance()) && scheduled.isNotEmpty() && !allDone
-            val color = when { allDone -> UiKit.green; missed -> UiKit.red; else -> UiKit.line }
+            val color = when {
+                allDone -> UiKit.green
+                missed -> UiKit.red
+                else -> UiKit.line
+            }
             val cell = LinearLayout(this@PlannerActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -166,7 +172,7 @@ class PlannerActivity : Activity() {
                     gravity = Gravity.CENTER
                     setTextColor(Color.WHITE)
                     background = UiKit.rounded(this@PlannerActivity, color, 22, color)
-                }, LinearLayout.LayoutParams(dp(36), dp(36)).apply { topMargin = dp(7) })
+                }, squareTop(36, 36, 7))
             }
             row.addView(cell, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
@@ -178,40 +184,60 @@ class PlannerActivity : Activity() {
         return UiKit.card(this).apply {
             setPadding(dp(18), dp(18), dp(18), dp(18))
             val row = LinearLayout(this@PlannerActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            addView(row)
             row.addView(TextView(this@PlannerActivity).apply {
                 text = "🔔"
                 textSize = 28f
                 gravity = Gravity.CENTER
                 background = UiKit.rounded(this@PlannerActivity, UiKit.orangeSoft, 16)
-            }, LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginEnd = dp(12) })
+            }, squareEnd(54, 54, 12))
             row.addView(LinearLayout(this@PlannerActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(UiKit.label(this@PlannerActivity, next?.title ?: "Todo al día", 16f, UiKit.ink, true))
                 addView(UiKit.label(this@PlannerActivity, if (next == null) "No tienes pendientes ahora" else "Próximo recordatorio · ${next.time}", 12f, UiKit.muted))
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(row)
         }
     }
 
     private fun calendarCard(tasks: List<RecurringTask>): View = UiKit.card(this).apply {
         val header = LinearLayout(this@PlannerActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         header.addView(Button(this@PlannerActivity).apply {
-            text = "‹"; textSize = 24f; background = UiKit.rounded(this@PlannerActivity, Color.TRANSPARENT, 12); setOnClickListener { month.add(Calendar.MONTH, -1); render() }
+            text = "‹"
+            textSize = 24f
+            background = UiKit.rounded(this@PlannerActivity, Color.TRANSPARENT, 12)
+            setOnClickListener { month.add(Calendar.MONTH, -1); render() }
         }, LinearLayout.LayoutParams(dp(44), dp(44)))
         header.addView(UiKit.label(this@PlannerActivity, monthName(month), 18f, UiKit.ink, true).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         header.addView(Button(this@PlannerActivity).apply {
-            text = "›"; textSize = 24f; background = UiKit.rounded(this@PlannerActivity, Color.TRANSPARENT, 12); setOnClickListener { month.add(Calendar.MONTH, 1); render() }
+            text = "›"
+            textSize = 24f
+            background = UiKit.rounded(this@PlannerActivity, Color.TRANSPARENT, 12)
+            setOnClickListener { month.add(Calendar.MONTH, 1); render() }
         }, LinearLayout.LayoutParams(dp(44), dp(44)))
         addView(header)
 
-        val grid = GridLayout(this@PlannerActivity).apply { columnCount = 7; rowCount = 7; setPadding(0, dp(10), 0, 0) }
-        listOf("L", "M", "X", "J", "V", "S", "D").forEach { d ->
-            grid.addView(UiKit.label(this@PlannerActivity, d, 11f, UiKit.muted, true).apply { gravity = Gravity.CENTER }, GridLayout.LayoutParams().apply { width = 0; height = dp(34); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
+        val grid = GridLayout(this@PlannerActivity).apply {
+            columnCount = 7
+            rowCount = 7
+            setPadding(0, dp(10), 0, 0)
         }
-        val first = (month.clone() as Calendar)
+        listOf("L", "M", "X", "J", "V", "S", "D").forEach { d ->
+            val params = GridLayout.LayoutParams().apply {
+                width = 0
+                height = dp(34)
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            }
+            grid.addView(UiKit.label(this@PlannerActivity, d, 11f, UiKit.muted, true).apply { gravity = Gravity.CENTER }, params)
+        }
+        val first = month.clone() as Calendar
         val mondayIndex = (first.get(Calendar.DAY_OF_WEEK) + 5) % 7
         repeat(mondayIndex) {
-            grid.addView(TextView(this@PlannerActivity), GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
+            val params = GridLayout.LayoutParams().apply {
+                width = 0
+                height = dp(46)
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            }
+            grid.addView(TextView(this@PlannerActivity), params)
         }
         val max = month.getActualMaximum(Calendar.DAY_OF_MONTH)
         for (dayNum in 1..max) {
@@ -221,12 +247,27 @@ class PlannerActivity : Activity() {
             val allDone = scheduled.isNotEmpty() && scheduled.all { it.completedDates.contains(key) }
             val anyMissed = scheduled.isNotEmpty() && cal.before(Calendar.getInstance()) && !allDone
             val isToday = key == store.todayKey()
-            val fill = when { allDone -> UiKit.green; anyMissed -> UiKit.red; else -> Color.TRANSPARENT }
+            val fill = when {
+                allDone -> UiKit.green
+                anyMissed -> UiKit.red
+                else -> Color.TRANSPARENT
+            }
             val textColor = if (allDone || anyMissed) Color.WHITE else UiKit.ink
-            grid.addView(TextView(this@PlannerActivity).apply {
-                text = dayNum.toString(); textSize = 12f; gravity = Gravity.CENTER; setTextColor(textColor)
-                background = UiKit.rounded(this@PlannerActivity, fill, 22, if (isToday && fill == Color.TRANSPARENT) UiKit.blue else if (fill == Color.TRANSPARENT) Color.TRANSPARENT else fill, if (isToday) 2 else 1)
-            }, GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(2), dp(2), dp(2), dp(2)) })
+            val cell = TextView(this@PlannerActivity).apply {
+                text = dayNum.toString()
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setTextColor(textColor)
+                val stroke = if (isToday && fill == Color.TRANSPARENT) UiKit.blue else if (fill == Color.TRANSPARENT) Color.TRANSPARENT else fill
+                background = UiKit.rounded(this@PlannerActivity, fill, 22, stroke, if (isToday) 2 else 1)
+            }
+            val params = GridLayout.LayoutParams().apply {
+                width = 0
+                height = dp(46)
+                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                setMargins(dp(2), dp(2), dp(2), dp(2))
+            }
+            grid.addView(cell, params)
         }
         addView(grid)
     }
@@ -234,7 +275,12 @@ class PlannerActivity : Activity() {
     private fun taskMenu(task: RecurringTask) {
         AlertDialog.Builder(this)
             .setTitle(task.title)
-            .setItems(arrayOf("Editar", "Eliminar")) { _, which -> if (which == 0) editTask(task) else { store.delete(task.id); render() } }
+            .setItems(arrayOf("Editar", "Eliminar")) { _, which ->
+                if (which == 0) editTask(task) else {
+                    store.delete(task.id)
+                    render()
+                }
+            }
             .setNegativeButton("Cerrar", null)
             .show()
     }
@@ -250,7 +296,12 @@ class PlannerActivity : Activity() {
             if (idx >= 0) setSelection(idx)
         }
         val reminder = CheckBox(this).apply { text = "Activar recordatorio"; isChecked = existing?.reminder ?: true }
-        box.addView(title); box.addView(time); box.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true)); box.addView(recurrence); box.addView(reminder)
+        box.addView(title)
+        box.addView(time)
+        box.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true))
+        box.addView(recurrence)
+        box.addView(reminder)
+
         val dialog = AlertDialog.Builder(this)
             .setTitle(if (existing == null) "Nueva tarea recurrente" else "Editar tarea")
             .setView(box)
@@ -259,7 +310,10 @@ class PlannerActivity : Activity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (title.text.toString().trim().isBlank()) { title.error = "Escribe una tarea"; return@setOnClickListener }
+                if (title.text.toString().trim().isBlank()) {
+                    title.error = "Escribe una tarea"
+                    return@setOnClickListener
+                }
                 store.save(
                     RecurringTask(
                         id = existing?.id.orEmpty(),
@@ -271,19 +325,52 @@ class PlannerActivity : Activity() {
                         completedDates = existing?.completedDates ?: emptySet()
                     )
                 )
-                dialog.dismiss(); render()
+                dialog.dismiss()
+                render()
             }
         }
         dialog.show()
     }
 
-    private fun emptyCard(text: String): View = UiKit.card(this).apply { addView(UiKit.label(this@PlannerActivity, text, 13f, UiKit.muted)) }
-    private fun monthName(cal: Calendar): String = SimpleDateFormat("MMMM yyyy", Locale("es", "PE")).format(cal.time).replaceFirstChar { it.titlecase(Locale("es", "PE")) }
+    private fun emptyCard(text: String): View = UiKit.card(this).apply {
+        addView(UiKit.label(this@PlannerActivity, text, 13f, UiKit.muted))
+    }
+
+    private fun monthName(cal: Calendar): String = SimpleDateFormat("MMMM yyyy", Locale("es", "PE"))
+        .format(cal.time)
+        .replaceFirstChar { it.titlecase(Locale("es", "PE")) }
+
     private fun prettyDate(value: String): String = try {
         val src = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val out = SimpleDateFormat("d MMM yyyy", Locale("es", "PE"))
         out.format(src.parse(value)!!)
-    } catch (_: Exception) { value }
-    private fun marginTop(value: Int) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
-    private fun dp(value: Int) = UiKit.run { this@PlannerActivity.dp(value) }
+    } catch (_: Exception) {
+        value
+    }
+
+    private fun marginTop(value: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(value)
+        return params
+    }
+
+    private fun squareEnd(width: Int, height: Int, end: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(dp(width), dp(height))
+        params.marginEnd = dp(end)
+        return params
+    }
+
+    private fun squareTop(width: Int, height: Int, top: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(dp(width), dp(height))
+        params.topMargin = dp(top)
+        return params
+    }
+
+    private fun wrapStart(start: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.marginStart = dp(start)
+        return params
+    }
+
+    private fun dp(value: Int): Int = UiKit.run { this@PlannerActivity.dp(value) }
 }
