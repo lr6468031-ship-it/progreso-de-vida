@@ -9,13 +9,13 @@ import java.util.Date
 import java.util.Locale
 
 class ProgressStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("progreso_vida_data", Context.MODE_PRIVATE)
+    private val prefs = StorageGuard.prefs(context)
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
 
     fun todayKey(): String = dayFormat.format(Date())
 
     private fun loadDays(): JSONArray {
-        val raw = prefs.getString("days", "[]") ?: "[]"
+        val raw = StorageGuard.readArrayString(prefs, "days")
         return try { JSONArray(raw) } catch (_: Exception) { JSONArray() }
     }
 
