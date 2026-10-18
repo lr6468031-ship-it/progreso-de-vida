@@ -45,3 +45,39 @@ jobs:
           name: progreso-de-vida-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  startup-smoke:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download compiled APK
+        uses: actions/download-artifact@v4
+        with:
+          name: progreso-de-vida-debug
+          path: smoke-apk
+
+      - name: Start app and verify it stays alive
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r smoke-apk/app-debug.apk
+            adb logcat -c
+            adb shell am start -W -n com.progresodevida/.MainActivity
+            sleep 3
+            PID=$(adb shell pidof com.progresodevida | tr -d '\r')
+            if [ -z "$PID" ]; then
+              echo "La aplicación se cerró durante el arranque"
+              adb logcat -d -t 300
+              exit 1
+            fi
+            if adb logcat -d -t 300 | grep -q "FATAL EXCEPTION.*com.progresodevida"; then
+              echo "Se detectó un crash de Progreso de Vida"
+              adb logcat -d -t 300
+              exit 1
+            fi
+            echo "Progreso de Vida continúa ejecutándose con PID $PID"
