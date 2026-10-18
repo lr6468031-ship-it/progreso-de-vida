@@ -9,11 +9,11 @@ import java.util.Locale
 
 class SkillGoalStore(context: Context) {
     private val appContext = context.applicationContext
-    private val prefs = appContext.getSharedPreferences("progreso_vida_data", Context.MODE_PRIVATE)
+    private val prefs = StorageGuard.prefs(appContext)
     private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     private fun load(key: String): JSONArray {
-        val raw = prefs.getString(key, "[]") ?: "[]"
+        val raw = StorageGuard.readArrayString(prefs, key)
         return try { JSONArray(raw) } catch (_: Exception) { JSONArray() }
     }
 
