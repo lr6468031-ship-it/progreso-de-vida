@@ -24,12 +24,24 @@ class MainActivity : Activity() {
         window.statusBarColor = Color.WHITE
         window.navigationBarColor = Color.WHITE
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-        setContentView(buildScreen())
+
+        try {
+            StorageGuard.repair(this)
+            setContentView(buildScreen())
+        } catch (error: Exception) {
+            setContentView(buildRecoveryScreen(error))
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        if (::body.isInitialized) render()
+        if (!::body.isInitialized) return
+        try {
+            StorageGuard.repair(this)
+            render()
+        } catch (error: Exception) {
+            setContentView(buildRecoveryScreen(error))
+        }
     }
 
     private fun buildScreen(): View {
@@ -46,6 +58,45 @@ class MainActivity : Activity() {
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         render()
         return root
+    }
+
+    private fun buildRecoveryScreen(error: Exception): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(48, 48, 48, 48)
+            setBackgroundColor(Color.WHITE)
+
+            addView(TextView(this@MainActivity).apply {
+                text = "Progreso de Vida"
+                textSize = 28f
+                setTextColor(Color.parseColor("#111827"))
+                setTypeface(typeface, Typeface.BOLD)
+            })
+
+            addView(TextView(this@MainActivity).apply {
+                text = "Encontré datos locales incompatibles. La app ya no se cerrará sola. Puedes limpiar esos datos y volver a entrar."
+                textSize = 15f
+                setTextColor(Color.parseColor("#6B7280"))
+                setPadding(0, 24, 0, 24)
+            })
+
+            addView(Button(this@MainActivity).apply {
+                text = "Reparar datos y reintentar"
+                isAllCaps = false
+                setOnClickListener {
+                    StorageGuard.prefs(this@MainActivity).edit().clear().commit()
+                    recreate()
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+            addView(TextView(this@MainActivity).apply {
+                text = "Diagnóstico: ${error.javaClass.simpleName}"
+                textSize = 11f
+                setTextColor(Color.parseColor("#9CA3AF"))
+                setPadding(0, 16, 0, 0)
+            })
+        }
     }
 
     private fun render() {
