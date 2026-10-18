@@ -132,7 +132,7 @@ class StatsActivity : Activity() {
         return params
     }
 
-    private fun dp(value: Int): Int = UiKit.run { this@StatsActivity.dp(value) }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
 
 private class ProgressChartView(

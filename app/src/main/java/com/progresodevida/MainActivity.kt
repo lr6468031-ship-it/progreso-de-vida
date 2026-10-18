@@ -234,5 +234,5 @@ class MainActivity : Activity() {
         return params
     }
 
-    private fun dp(value: Int): Int = UiKit.run { this@MainActivity.dp(value) }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }

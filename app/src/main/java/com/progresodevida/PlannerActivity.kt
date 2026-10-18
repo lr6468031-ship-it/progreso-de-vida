@@ -372,5 +372,5 @@ class PlannerActivity : Activity() {
         return params
     }
 
-    private fun dp(value: Int): Int = UiKit.run { this@PlannerActivity.dp(value) }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }

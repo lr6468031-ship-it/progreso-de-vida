@@ -160,5 +160,5 @@ class GoalsActivity : Activity() {
         return params
     }
 
-    private fun dp(value: Int): Int = UiKit.run { this@GoalsActivity.dp(value) }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
