@@ -30,7 +30,10 @@ class PlannerStore(context: Context) {
                 recurrence = item.optString("recurrence", "Todos los días"),
                 startDate = item.optString("startDate", todayKey()),
                 reminder = item.optBoolean("reminder", true),
-                completedDates = done
+                completedDates = done,
+                category = item.optString("category", "Hábitos"),
+                durationMinutes = item.optInt("durationMinutes", 0),
+                missedDates = item.optJSONArray("missedDates").let { a -> (0 until (a?.length() ?: 0)).map { a!!.optString(it) }.toSet()
             )
         }
         return result.sortedBy { it.time }
@@ -57,8 +60,16 @@ class PlannerStore(context: Context) {
         val task = all[idx]
         val dates = task.completedDates.toMutableSet()
         if (!dates.add(date)) dates.remove(date)
-        all[idx] = task.copy(completedDates = dates)
+        all[idx] = task.copy(completedDates = dates, missedDates = task.missedDates - date)
         persist(all)
+    }
+
+    fun mark(id: String, date: String, completed: Boolean) {
+        val task = tasks().firstOrNull { it.id == id } ?: return
+        save(task.copy(
+            completedDates = if (completed) task.completedDates + date else task.completedDates - date,
+            missedDates = if (completed) task.missedDates - date else task.missedDates + date
+        ))
     }
 
     fun scheduledFor(task: RecurringTask, cal: Calendar): Boolean {
@@ -87,6 +98,9 @@ class PlannerStore(context: Context) {
                     .put("startDate", task.startDate)
                     .put("reminder", task.reminder)
                     .put("completedDates", done)
+                    .put("category", task.category)
+                    .put("durationMinutes", task.durationMinutes)
+                    .put("missedDates", JSONArray(task.missedDates.sorted()))
             )
         }
         prefs.edit().putString("recurring_tasks", source.toString()).apply()
@@ -100,5 +114,8 @@ data class RecurringTask(
     val recurrence: String = "Todos los días",
     val startDate: String = "",
     val reminder: Boolean = true,
-    val completedDates: Set<String> = emptySet()
+    val completedDates: Set<String> = emptySet(),
+    val category: String = "Hábitos",
+    val durationMinutes: Int = 0,
+    val missedDates: Set<String> = emptySet()
 )
