@@ -58,7 +58,7 @@ class GoalsActivity : Activity() {
         body.addView(UiKit.card(this).apply {
             val top = LinearLayout(this@GoalsActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             top.addView(UiKit.label(this@GoalsActivity, "▱", 28f, UiKit.orange, true))
-            top.addView(UiKit.label(this@GoalsActivity, year.toString(), 26f, UiKit.ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(10) })
+            top.addView(UiKit.label(this@GoalsActivity, year.toString(), 26f, UiKit.ink, true), weightedStart(10))
             top.addView(Button(this@GoalsActivity).apply {
                 text = "+"; textSize = 22f; setTextColor(Color.WHITE); background = UiKit.rounded(this@GoalsActivity, UiKit.orange, 24); stateListAnimator = null; setOnClickListener { openManager() }
             }, LinearLayout.LayoutParams(dp(46), dp(46)))
@@ -71,7 +71,7 @@ class GoalsActivity : Activity() {
 
         val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         tabs.addView(UiKit.pill(this, "Activas (${active.size})", UiKit.orangeSoft, UiKit.orange), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        tabs.addView(UiKit.pill(this, "Completadas (${completed.size})", Color.WHITE, UiKit.muted), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(8) })
+        tabs.addView(UiKit.pill(this, "Completadas (${completed.size})", Color.WHITE, UiKit.muted), weightedStart(8))
         body.addView(tabs, marginTop(14))
 
         if (active.isEmpty()) {
@@ -103,7 +103,7 @@ class GoalsActivity : Activity() {
             textSize = 21f; gravity = Gravity.CENTER
             setTextColor(if (goal.status == "completado") Color.WHITE else UiKit.orange)
             background = UiKit.rounded(this@GoalsActivity, if (goal.status == "completado") UiKit.orange else Color.WHITE, 22, UiKit.orange, 2)
-        }, LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(11) })
+        }, squareEnd(42, 42, 11))
         row.addView(LinearLayout(this@GoalsActivity).apply {
             orientation = LinearLayout.VERTICAL
             addView(UiKit.label(this@GoalsActivity, "${icon(goal.type)} ${goal.name}", 16f, UiKit.ink, true))
@@ -130,9 +130,35 @@ class GoalsActivity : Activity() {
         progressBackgroundTintList = android.content.res.ColorStateList.valueOf(UiKit.line)
     }
 
-    private fun openManager() = startActivity(Intent(this, SkillGoalsActivity::class.java))
-    private fun icon(type: String) = when (type) { "Estudio" -> "📚"; "Meta" -> "🎯"; "Proyecto" -> "🛠"; "Hábito" -> "↻"; else -> "🧠" }
+    private fun openManager(): Unit = startActivity(Intent(this, SkillGoalsActivity::class.java))
+
+    private fun icon(type: String): String = when (type) {
+        "Estudio" -> "📚"
+        "Meta" -> "🎯"
+        "Proyecto" -> "🛠"
+        "Hábito" -> "↻"
+        else -> "🧠"
+    }
+
     private fun hours(value: Double): String = if (value % 1.0 == 0.0) "${value.toLong()} h" else String.format(java.util.Locale.US, "%.1f h", value)
-    private fun marginTop(value: Int) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
-    private fun dp(value: Int) = UiKit.run { this@GoalsActivity.dp(value) }
+
+    private fun marginTop(value: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(value)
+        return params
+    }
+
+    private fun weightedStart(start: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        params.marginStart = dp(start)
+        return params
+    }
+
+    private fun squareEnd(width: Int, height: Int, end: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(dp(width), dp(height))
+        params.marginEnd = dp(end)
+        return params
+    }
+
+    private fun dp(value: Int): Int = UiKit.run { this@GoalsActivity.dp(value) }
 }
