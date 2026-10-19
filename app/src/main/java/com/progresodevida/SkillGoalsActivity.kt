@@ -30,6 +30,7 @@ class SkillGoalsActivity : Activity() {
 
     private lateinit var body: LinearLayout
     private lateinit var store: SkillGoalStore
+    private lateinit var plannerStore: PlannerStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +38,7 @@ class SkillGoalsActivity : Activity() {
         window.navigationBarColor = fondo
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         store = SkillGoalStore(this)
+        plannerStore = PlannerStore(this)
         setContentView(buildScreen())
         render()
     }
@@ -62,7 +64,7 @@ class SkillGoalsActivity : Activity() {
             setTypeface(typeface, Typeface.BOLD)
         })
         header.addView(TextView(this).apply {
-            text = "Crea cualquier cosa que quieras aprender, conseguir o convertir en hábito."
+            text = "Crea metas con duración, inicio y fin. Las tareas vinculadas actualizan el avance automáticamente."
             textSize = 12f
             setTextColor(texto2)
         })
@@ -88,7 +90,7 @@ class SkillGoalsActivity : Activity() {
         body.addView(summary("${active.size} activos", "${completed.size} completados · ${hours(totalHours)} acumuladas"))
 
         if (items.isEmpty()) {
-            body.addView(infoCard("Ejemplos: “Aprender Serum”, “Terminar curso de mezcla”, “Entrenar 3 meses”, “Mejorar ventas”, “Aprender inglés”. Tú eliges el tipo y el objetivo."), top(10))
+            body.addView(infoCard("Ejemplos: “Aprender Serum”, “Terminar curso de mezcla”, “Entrenar 3 meses”, “Mejorar ventas”, “Aprender inglés”. Tú eliges duración, inicio y fin."), top(10))
             return
         }
 
@@ -109,6 +111,8 @@ class SkillGoalsActivity : Activity() {
         isClickable = true
         setOnClickListener { showActions(goal) }
 
+        val linkedProgress = plannerStore.goalProgress(goal.id)
+
         addView(TextView(this@SkillGoalsActivity).apply {
             text = "${iconFor(goal.type)} ${goal.name}"
             textSize = 15f
@@ -124,6 +128,30 @@ class SkillGoalsActivity : Activity() {
             text = "${goal.type} · ${goal.area}\n$progress · ${goal.sessionCount} sesiones"
             textSize = 11f
             setTextColor(texto2)
+            setPadding(0, dp(5), 0, 0)
+        })
+        addView(TextView(this@SkillGoalsActivity).apply {
+            val unit = when (goal.period) {
+                "Semana" -> if (goal.periodCount == 1) "semana" else "semanas"
+                "Mes" -> if (goal.periodCount == 1) "mes" else "meses"
+                else -> if (goal.periodCount == 1) "año" else "años"
+            }
+            val dates = buildString {
+                if (goal.startDate.isNotBlank()) append("Inicio ${goal.startDate}")
+                if (goal.endDate.isNotBlank()) {
+                    if (isNotEmpty()) append(" · ")
+                    append("Fin ${goal.endDate}")
+                }
+            }
+            text = "Duración: ${goal.periodCount} $unit${if (dates.isBlank()) "" else "\n$dates"}"
+            textSize = 11f
+            setTextColor(texto2)
+            setPadding(0, dp(5), 0, 0)
+        })
+        if (linkedProgress.total > 0) addView(TextView(this@SkillGoalsActivity).apply {
+            text = "Tareas de la meta: ${linkedProgress.completed}/${linkedProgress.total} completadas · ${linkedProgress.remaining} faltan · ${linkedProgress.percent}%"
+            textSize = 11f
+            setTextColor(verdeSuave)
             setPadding(0, dp(5), 0, 0)
         })
         if (goal.target.isNotBlank()) addView(TextView(this@SkillGoalsActivity).apply {
@@ -166,17 +194,25 @@ class SkillGoalsActivity : Activity() {
         val box = dialogBox()
         val types = listOf("Habilidad", "Estudio", "Meta", "Proyecto", "Hábito")
         val areas = listOf("Música", "Ejercicio", "Vida social", "Trabajo", "Otro")
+        val periods = listOf("Semana", "Mes", "Año")
         val type = spinner(types, existing?.type)
         val name = field("Nombre · ej. Aprender Serum", existing?.name)
         val area = spinner(areas, existing?.area)
+        val period = spinner(periods, existing?.period ?: "Mes")
+        val periodCount = integerField("Cantidad · ej. 3", existing?.periodCount ?: 1)
+        val startDate = field("Inicio · AAAA-MM-DD", existing?.startDate)
+        val endDate = field("Fin · AAAA-MM-DD", existing?.endDate)
         val target = field("Objetivo concreto · ej. terminar 20 clases", existing?.target)
         val targetHours = numberField("Meta de horas · opcional", existing?.targetHours)
-        val deadline = field("Fecha límite · opcional · ej. 31/12/2026", existing?.deadline)
+        val deadline = field("Fecha límite adicional · opcional", existing?.deadline)
         val notes = field("Notas / por qué quiero aprenderlo", existing?.notes, true)
 
         box.addView(label("Tipo")); box.addView(type)
         box.addView(name)
         box.addView(label("Área principal (las sesiones se suman aquí)")); box.addView(area)
+        box.addView(label("Duración")); box.addView(period)
+        box.addView(periodCount)
+        box.addView(label("Cuándo empieza y cuándo termina")); box.addView(startDate); box.addView(endDate)
         box.addView(target); box.addView(targetHours); box.addView(deadline); box.addView(notes)
 
         val dialog = AlertDialog.Builder(this)
@@ -192,12 +228,17 @@ class SkillGoalsActivity : Activity() {
                     name.error = "Ponle un nombre"
                     return@setOnClickListener
                 }
+                val count = periodCount.text.toString().toIntOrNull()?.coerceAtLeast(1) ?: 1
                 store.saveItem(
                     SkillGoal(
                         id = existing?.id.orEmpty(),
                         type = type.selectedItem.toString(),
                         name = n,
                         area = area.selectedItem.toString(),
+                        period = period.selectedItem.toString(),
+                        periodCount = count,
+                        startDate = startDate.text.toString().trim(),
+                        endDate = endDate.text.toString().trim(),
                         target = target.text.toString().trim(),
                         targetHours = parseNumber(targetHours) ?: 0.0,
                         deadline = deadline.text.toString().trim(),
@@ -339,6 +380,15 @@ class SkillGoalsActivity : Activity() {
         this.hint = hint
         inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         if (value != null && value > 0.0) setText(number(value))
+        setTextColor(Color.BLACK)
+        setHintTextColor(Color.DKGRAY)
+        isSingleLine = true
+    }
+
+    private fun integerField(hint: String, value: Int) = EditText(this).apply {
+        this.hint = hint
+        inputType = InputType.TYPE_CLASS_NUMBER
+        if (value > 0) setText(value.toString())
         setTextColor(Color.BLACK)
         setHintTextColor(Color.DKGRAY)
         isSingleLine = true
