@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -18,21 +19,23 @@ import android.widget.TextView
 import java.util.Locale
 
 class SkillGoalsActivity : Activity() {
-    private val fondo = Color.parseColor("#0E130B")
-    private val superficie = Color.parseColor("#1B2516")
-    private val verde = Color.parseColor("#4CD964")
-    private val verdeSuave = Color.parseColor("#CFF5D5")
-    private val texto = Color.parseColor("#F5F7EA")
-    private val texto2 = Color.parseColor("#B9C6AD")
-    private val amarillo = Color.parseColor("#E1C75B")
+    private val fondo = Color.parseColor("#F6F7FB")
+    private val superficie = Color.parseColor("#FFFFFF")
+    private val verde = Color.parseColor("#2F6FED")
+    private val verdeSuave = Color.parseColor("#1E5ED8")
+    private val texto = Color.parseColor("#101828")
+    private val texto2 = Color.parseColor("#667085")
+    private val amarillo = Color.parseColor("#B26A00")
+    private val borde = Color.parseColor("#D8DEE9")
 
     private lateinit var body: LinearLayout
     private lateinit var store: SkillGoalStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.BLACK
-        window.navigationBarColor = Color.BLACK
+        window.statusBarColor = fondo
+        window.navigationBarColor = fondo
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         store = SkillGoalStore(this)
         setContentView(buildScreen())
         render()
@@ -109,7 +112,7 @@ class SkillGoalsActivity : Activity() {
         addView(TextView(this@SkillGoalsActivity).apply {
             text = "${iconFor(goal.type)} ${goal.name}"
             textSize = 15f
-            setTextColor(if (goal.status == "completado") verdeSuave else texto)
+            setTextColor(if (goal.status == "completado") verde else texto)
             setTypeface(typeface, Typeface.BOLD)
         })
         addView(TextView(this@SkillGoalsActivity).apply {
@@ -301,7 +304,7 @@ class SkillGoalsActivity : Activity() {
     }
 
     private fun primaryButton(label: String, action: () -> Unit) = Button(this).apply {
-        text = label; isAllCaps = false; textSize = 14f; setTextColor(Color.BLACK); setTypeface(typeface, Typeface.BOLD)
+        text = label; isAllCaps = false; textSize = 14f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD)
         background = GradientDrawable().apply { setColor(verde); cornerRadius = dp(14).toFloat() }
         stateListAnimator = null
         setOnClickListener { action() }
@@ -346,7 +349,7 @@ class SkillGoalsActivity : Activity() {
     private fun hours(value: Double): String = "${number(value)} h"
 
     private fun cardBg() = GradientDrawable().apply {
-        setColor(superficie); cornerRadius = dp(15).toFloat(); setStroke(dp(2), verde)
+        setColor(superficie); cornerRadius = dp(15).toFloat(); setStroke(dp(1), borde)
     }
 
     private fun top(value: Int) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
