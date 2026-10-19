@@ -29,6 +29,7 @@ class PlannerStore(context: Context) {
                 time = item.optString("time", "19:00"),
                 recurrence = item.optString("recurrence", "Todos los días"),
                 startDate = item.optString("startDate", todayKey()),
+                endDate = item.optString("endDate", ""),
                 reminder = item.optBoolean("reminder", true),
                 completedDates = done,
                 category = item.optString("category", "Hábitos"),
@@ -75,6 +76,7 @@ class PlannerStore(context: Context) {
     fun scheduledFor(task: RecurringTask, cal: Calendar): Boolean {
         val key = dayFormat.format(cal.time)
         if (task.startDate.isNotBlank() && key < task.startDate) return false
+        if (task.endDate.isNotBlank() && key > task.endDate) return false
         return when (task.recurrence) {
             "Lun, mié, vie" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.MONDAY, Calendar.WEDNESDAY, Calendar.FRIDAY)
             "Mar, jue, sáb" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.TUESDAY, Calendar.THURSDAY, Calendar.SATURDAY)
@@ -96,6 +98,7 @@ class PlannerStore(context: Context) {
                     .put("time", task.time)
                     .put("recurrence", task.recurrence)
                     .put("startDate", task.startDate)
+                    .put("endDate", task.endDate)
                     .put("reminder", task.reminder)
                     .put("completedDates", done)
                     .put("category", task.category)
@@ -113,6 +116,7 @@ data class RecurringTask(
     val time: String = "19:00",
     val recurrence: String = "Todos los días",
     val startDate: String = "",
+    val endDate: String = "",
     val reminder: Boolean = true,
     val completedDates: Set<String> = emptySet(),
     val category: String = "Hábitos",
