@@ -34,6 +34,9 @@ class SkillGoalStore(context: Context) {
                 name = item.optString("name", "Nueva meta"),
                 area = item.optString("area", "Otro"),
                 period = normalizePeriod(item.optString("period", "Año")),
+                periodCount = item.optInt("periodCount", 1).coerceAtLeast(1),
+                startDate = item.optString("startDate", item.optString("createdAt", "")),
+                endDate = item.optString("endDate", item.optString("deadline", "")),
                 target = item.optString("target", ""),
                 targetHours = item.optDouble("targetHours", 0.0).coerceAtLeast(0.0),
                 deadline = item.optString("deadline", ""),
@@ -52,12 +55,17 @@ class SkillGoalStore(context: Context) {
         val id = value.id.ifBlank { "GOAL-${System.currentTimeMillis()}" }
         val created = value.createdAt.ifBlank { dayFormat.format(Date()) }
         val period = normalizePeriod(value.period)
+        val start = value.startDate.trim().ifBlank { created }
+        val end = value.endDate.trim()
         val json = JSONObject()
             .put("id", id)
             .put("type", value.type.ifBlank { "Habilidad" })
             .put("name", value.name.trim())
             .put("area", value.area.ifBlank { "Otro" })
             .put("period", period)
+            .put("periodCount", value.periodCount.coerceAtLeast(1))
+            .put("startDate", start)
+            .put("endDate", end)
             .put("target", value.target.trim())
             .put("targetHours", value.targetHours.coerceAtLeast(0.0))
             .put("deadline", value.deadline.trim())
@@ -76,7 +84,14 @@ class SkillGoalStore(context: Context) {
         }
         if (!replaced) source.put(json)
         save("skill_goals", source)
-        return value.copy(id = id, period = period, createdAt = created)
+        return value.copy(
+            id = id,
+            period = period,
+            periodCount = value.periodCount.coerceAtLeast(1),
+            startDate = start,
+            endDate = end,
+            createdAt = created
+        )
     }
 
     fun deleteItem(id: String): Boolean {
@@ -168,6 +183,9 @@ data class SkillGoal(
     val name: String,
     val area: String = "Otro",
     val period: String = "Año",
+    val periodCount: Int = 1,
+    val startDate: String = "",
+    val endDate: String = "",
     val target: String = "",
     val targetHours: Double = 0.0,
     val deadline: String = "",
