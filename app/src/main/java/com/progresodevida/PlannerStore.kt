@@ -30,6 +30,7 @@ class PlannerStore(context: Context) {
                 recurrence = item.optString("recurrence", "Todos los días"),
                 startDate = item.optString("startDate", todayKey()),
                 endDate = item.optString("endDate", ""),
+                goalId = item.optString("goalId", ""),
                 reminder = item.optBoolean("reminder", true),
                 completedDates = done,
                 category = item.optString("category", "Hábitos"),
@@ -73,6 +74,35 @@ class PlannerStore(context: Context) {
         ))
     }
 
+    fun tasksForGoal(goalId: String): List<RecurringTask> = tasks().filter { it.goalId == goalId }
+
+    fun goalProgress(goalId: String): GoalTaskProgress {
+        val linked = tasksForGoal(goalId)
+        var total = 0
+        var completed = 0
+        linked.forEach { task ->
+            val start = parseDate(task.startDate)
+            val end = parseDate(task.endDate)
+            if (start == null || end == null || end.before(start)) {
+                completed += task.completedDates.size
+                total += task.completedDates.size
+                return@forEach
+            }
+            val cursor = start.clone() as Calendar
+            var guard = 0
+            while (!cursor.after(end) && guard < 4000) {
+                if (scheduledFor(task, cursor)) {
+                    total += 1
+                    val key = dayFormat.format(cursor.time)
+                    if (task.completedDates.contains(key)) completed += 1
+                }
+                cursor.add(Calendar.DAY_OF_MONTH, 1)
+                guard += 1
+            }
+        }
+        return GoalTaskProgress(completed = completed, total = total)
+    }
+
     fun scheduledFor(task: RecurringTask, cal: Calendar): Boolean {
         val key = dayFormat.format(cal.time)
         if (task.startDate.isNotBlank() && key < task.startDate) return false
@@ -84,6 +114,13 @@ class PlannerStore(context: Context) {
             "Fines de semana" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.SATURDAY, Calendar.SUNDAY)
             else -> true
         }
+    }
+
+    private fun parseDate(value: String): Calendar? = try {
+        val parsed = dayFormat.parse(value) ?: return null
+        Calendar.getInstance().apply { time = parsed }
+    } catch (_: Exception) {
+        null
     }
 
     private fun persist(tasks: List<RecurringTask>) {
@@ -99,6 +136,7 @@ class PlannerStore(context: Context) {
                     .put("recurrence", task.recurrence)
                     .put("startDate", task.startDate)
                     .put("endDate", task.endDate)
+                    .put("goalId", task.goalId)
                     .put("reminder", task.reminder)
                     .put("completedDates", done)
                     .put("category", task.category)
@@ -117,9 +155,18 @@ data class RecurringTask(
     val recurrence: String = "Todos los días",
     val startDate: String = "",
     val endDate: String = "",
+    val goalId: String = "",
     val reminder: Boolean = true,
     val completedDates: Set<String> = emptySet(),
     val category: String = "Hábitos",
     val durationMinutes: Int = 0,
     val missedDates: Set<String> = emptySet()
 )
+
+data class GoalTaskProgress(
+    val completed: Int,
+    val total: Int
+) {
+    val remaining: Int get() = (total - completed).coerceAtLeast(0)
+    val percent: Int get() = if (total <= 0) 0 else (completed * 100 / total).coerceIn(0, 100)
+}
