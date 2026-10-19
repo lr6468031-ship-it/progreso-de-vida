@@ -2,6 +2,7 @@ package com.progresodevida
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -9,12 +10,14 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.widget.NumberPicker
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
@@ -123,7 +126,7 @@ class PlannerActivity : Activity() {
             row.addView(LinearLayout(this@PlannerActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(UiKit.label(this@PlannerActivity, task.title, 17f, UiKit.ink, true))
-                addView(UiKit.label(this@PlannerActivity, "${task.time}  ·  ${task.recurrence}", 12f, UiKit.muted))
+                addView(UiKit.label(this@PlannerActivity, "${formatTime12(task.time)}  ·  ${task.recurrence}", 12f, UiKit.muted))
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(TextView(this@PlannerActivity).apply {
                 text = "⋮"
@@ -139,7 +142,7 @@ class PlannerActivity : Activity() {
                 setPadding(0, dp(12), 0, 0)
             }
             chips.addView(UiKit.pill(this@PlannerActivity, "📅 ${prettyDate(task.startDate)}"))
-            chips.addView(UiKit.pill(this@PlannerActivity, "⏰ ${task.time}"), wrapStart(8))
+            chips.addView(UiKit.pill(this@PlannerActivity, "⏰ ${formatTime12(task.time)}"), wrapStart(8))
             if (task.reminder) chips.addView(UiKit.pill(this@PlannerActivity, "🔔", UiKit.blueSoft, UiKit.blue), wrapStart(8))
             addView(chips)
         }
@@ -193,7 +196,7 @@ class PlannerActivity : Activity() {
             row.addView(LinearLayout(this@PlannerActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(UiKit.label(this@PlannerActivity, next?.title ?: "Todo al día", 16f, UiKit.ink, true))
-                addView(UiKit.label(this@PlannerActivity, if (next == null) "No tienes pendientes ahora" else "Próximo recordatorio · ${next.time}", 12f, UiKit.muted))
+                addView(UiKit.label(this@PlannerActivity, if (next == null) "No tienes pendientes ahora" else "Próximo recordatorio · ${formatTime12(next.time)}", 12f, UiKit.muted))
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(row)
         }
@@ -286,65 +289,238 @@ class PlannerActivity : Activity() {
     }
 
     private fun editTask(existing: RecurringTask?) {
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(4), dp(20), dp(4)) }
-        val title = EditText(this).apply { hint = "Nombre de la tarea"; setText(existing?.title.orEmpty()); inputType = InputType.TYPE_CLASS_TEXT }
-        val time = EditText(this).apply { hint = "Hora · 19:00"; setText(existing?.time ?: "19:00"); inputType = InputType.TYPE_CLASS_DATETIME }
+        val initialTime = parseTime24(existing?.time ?: "19:00")
+        val initialHour24 = initialTime.first
+        val initialMinute = initialTime.second
+        val initialHour12 = when (val hour = initialHour24 % 12) {
+            0 -> 12
+            else -> hour
+        }
+        var isPm = initialHour24 >= 12
+
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(20), dp(20), dp(18))
+            background = UiKit.rounded(this@PlannerActivity, UiKit.surface, 24, UiKit.line)
+        }
+
+        card.addView(UiKit.label(this, if (existing == null) "Nueva tarea recurrente" else "Editar tarea", 24f, UiKit.ink, true))
+        card.addView(UiKit.label(this, "Configura el hábito con el mismo estilo de Proyecto de vida.", 12f, UiKit.muted), marginTop(4))
+
+        val title = EditText(this).apply {
+            hint = "Nombre de la tarea"
+            setText(existing?.title.orEmpty())
+            inputType = InputType.TYPE_CLASS_TEXT
+            setTextColor(UiKit.ink)
+            setHintTextColor(UiKit.muted)
+            textSize = 16f
+            setPadding(dp(14), 0, dp(14), 0)
+            background = UiKit.rounded(this@PlannerActivity, Color.WHITE, 14, UiKit.line)
+        }
+        card.addView(UiKit.label(this, "Nombre de la tarea", 12f, UiKit.muted, true), marginTop(18))
+        card.addView(title, fixedTop(56, 7))
+
+        card.addView(UiKit.label(this, "Hora de inicio", 12f, UiKit.muted, true), marginTop(18))
+        card.addView(UiKit.label(this, "Desliza hora y minutos; no necesitas escribir.", 11f, UiKit.muted), marginTop(3))
+
+        val startHour = wheelPicker(1, 12, initialHour12)
+        val startMinute = wheelPicker(0, 59, initialMinute)
+        val startRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            background = UiKit.rounded(this@PlannerActivity, UiKit.bg, 18, UiKit.line)
+            addView(startHour, LinearLayout.LayoutParams(0, dp(112), 1f))
+            addView(UiKit.label(this@PlannerActivity, ":", 28f, UiKit.ink, true).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(28), dp(112)))
+            addView(startMinute, LinearLayout.LayoutParams(0, dp(112), 1f))
+        }
+        card.addView(startRow, marginTop(8))
+
+        val amButton = periodButton("a. m.")
+        val pmButton = periodButton("p. m.")
+        fun refreshPeriodButtons() {
+            stylePeriodButton(amButton, !isPm)
+            stylePeriodButton(pmButton, isPm)
+        }
+        amButton.setOnClickListener { isPm = false; refreshPeriodButtons() }
+        pmButton.setOnClickListener { isPm = true; refreshPeriodButtons() }
+        refreshPeriodButtons()
+
+        val periodRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(amButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(6) })
+            addView(pmButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(6) })
+        }
+        card.addView(periodRow, marginTop(8))
+
+        val categories = listOf("Deporte", "Música", "Hábitos", "Trabajo", "Metas", "Vida social")
+        val category = Spinner(this).apply {
+            adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, categories)
+            setSelection(categories.indexOf(existing?.category ?: "Hábitos").coerceAtLeast(0))
+        }
+        card.addView(UiKit.label(this, "Categoría", 12f, UiKit.muted, true), marginTop(18))
+        card.addView(category, fixedTop(52, 5))
+
+        val durationTotal = (existing?.durationMinutes ?: 0).coerceIn(0, 1440)
+        val durationHour = wheelPicker(0, 24, durationTotal / 60)
+        val durationMinute = wheelPicker(0, 59, durationTotal % 60)
+        durationHour.setOnValueChangedListener { _, _, value ->
+            if (value == 24) durationMinute.value = 0
+        }
+        durationMinute.setOnValueChangedListener { _, _, value ->
+            if (durationHour.value == 24 && value != 0) durationMinute.value = 0
+        }
+
+        card.addView(UiKit.label(this, "Duración (HH : MM)", 12f, UiKit.muted, true), marginTop(18))
+        card.addView(UiKit.label(this, "Izquierda: horas. Derecha: minutos.", 11f, UiKit.muted), marginTop(3))
+        val durationRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            background = UiKit.rounded(this@PlannerActivity, UiKit.bg, 18, UiKit.line)
+            addView(durationHour, LinearLayout.LayoutParams(0, dp(112), 1f))
+            addView(UiKit.label(this@PlannerActivity, ":", 28f, UiKit.ink, true).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(28), dp(112)))
+            addView(durationMinute, LinearLayout.LayoutParams(0, dp(112), 1f))
+        }
+        card.addView(durationRow, marginTop(8))
+
         val recurrenceOptions = listOf("Todos los días", "Días laborables", "Fines de semana", "Lun, mié, vie", "Mar, jue, sáb")
         val recurrence = Spinner(this).apply {
             adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, recurrenceOptions)
             val idx = recurrenceOptions.indexOf(existing?.recurrence)
             if (idx >= 0) setSelection(idx)
         }
-        val categories = listOf("Deporte", "Música", "Hábitos", "Trabajo", "Metas", "Vida social")
-        val category = Spinner(this).apply {
-            adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, categories)
-            setSelection(categories.indexOf(existing?.category ?: "Hábitos").coerceAtLeast(0))
-        }
-        val duration = EditText(this).apply {
-            hint = "Duración en minutos (opcional)"
-            inputType = InputType.TYPE_CLASS_NUMBER
-            if ((existing?.durationMinutes ?: 0) > 0) setText(existing!!.durationMinutes.toString())
-        }
-        val reminder = CheckBox(this).apply { text = "Activar recordatorio"; isChecked = existing?.reminder ?: true }
-        box.addView(title)
-        box.addView(time)
-        box.addView(category)
-        box.addView(duration)
-        box.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true))
-        box.addView(recurrence)
-        box.addView(reminder)
+        card.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true), marginTop(18))
+        card.addView(recurrence, fixedTop(52, 5))
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(if (existing == null) "Nueva tarea recurrente" else "Editar tarea")
-            .setView(box)
-            .setPositiveButton("Guardar", null)
-            .setNegativeButton("Cancelar", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (title.text.toString().trim().isBlank()) {
-                    title.error = "Escribe una tarea"
-                    return@setOnClickListener
-                }
-                store.save(
-                    RecurringTask(
-                        id = existing?.id.orEmpty(),
-                        title = title.text.toString(),
-                        time = time.text.toString().trim().ifBlank { "19:00" },
-                        recurrence = recurrence.selectedItem.toString(),
-                        startDate = existing?.startDate ?: store.todayKey(),
-                        reminder = reminder.isChecked,
-                        completedDates = existing?.completedDates ?: emptySet(),
-                        missedDates = existing?.missedDates ?: emptySet(),
-                        category = category.selectedItem.toString(),
-                        durationMinutes = duration.text.toString().toIntOrNull()?.coerceIn(0, 1440) ?: 0
-                    )
-                )
-                dialog.dismiss()
-                render()
+        val reminder = CheckBox(this).apply {
+            text = "Activar recordatorio"
+            setTextColor(UiKit.ink)
+            isChecked = existing?.reminder ?: true
+        }
+        card.addView(reminder, marginTop(12))
+
+        val cancel = Button(this).apply {
+            text = "Cancelar"
+            isAllCaps = false
+            textSize = 14f
+            setTextColor(UiKit.ink)
+            background = UiKit.rounded(this@PlannerActivity, UiKit.bg, 14, UiKit.line)
+            stateListAnimator = null
+            setOnClickListener { dialog.dismiss() }
+        }
+        val save = Button(this).apply {
+            text = "Guardar"
+            isAllCaps = false
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            setTypeface(typeface, Typeface.BOLD)
+            background = UiKit.rounded(this@PlannerActivity, UiKit.green, 14)
+            stateListAnimator = null
+        }
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(cancel, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(6) })
+            addView(save, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginStart = dp(6) })
+        }
+        card.addView(actions, marginTop(20))
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = false
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(card, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        val shell = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(20), dp(14), dp(20))
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(scroll, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        dialog.setContentView(shell)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        save.setOnClickListener {
+            if (title.text.toString().trim().isBlank()) {
+                title.error = "Escribe una tarea"
+                return@setOnClickListener
             }
+
+            val selectedHour12 = startHour.value
+            val selectedHour24 = when {
+                isPm && selectedHour12 == 12 -> 12
+                isPm -> selectedHour12 + 12
+                selectedHour12 == 12 -> 0
+                else -> selectedHour12
+            }
+            val storedTime = String.format(Locale.US, "%02d:%02d", selectedHour24, startMinute.value)
+            val storedDuration = if (durationHour.value == 24) 1440 else durationHour.value * 60 + durationMinute.value
+
+            store.save(
+                RecurringTask(
+                    id = existing?.id.orEmpty(),
+                    title = title.text.toString().trim(),
+                    time = storedTime,
+                    recurrence = recurrence.selectedItem.toString(),
+                    startDate = existing?.startDate ?: store.todayKey(),
+                    reminder = reminder.isChecked,
+                    completedDates = existing?.completedDates ?: emptySet(),
+                    missedDates = existing?.missedDates ?: emptySet(),
+                    category = category.selectedItem.toString(),
+                    durationMinutes = storedDuration.coerceIn(0, 1440)
+                )
+            )
+            dialog.dismiss()
+            render()
+        }
+
+        dialog.setOnShowListener {
+            dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.94f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         dialog.show()
+    }
+
+    private fun wheelPicker(min: Int, max: Int, selected: Int): NumberPicker = NumberPicker(this).apply {
+        minValue = min
+        maxValue = max
+        value = selected.coerceIn(min, max)
+        wrapSelectorWheel = true
+        descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
+        setFormatter { value -> String.format(Locale.US, "%02d", value) }
+    }
+
+    private fun periodButton(label: String): Button = Button(this).apply {
+        text = label
+        isAllCaps = false
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
+        stateListAnimator = null
+    }
+
+    private fun stylePeriodButton(button: Button, selected: Boolean) {
+        button.setTextColor(if (selected) Color.WHITE else UiKit.green)
+        button.background = UiKit.rounded(this, if (selected) UiKit.green else UiKit.greenSoft, 14, UiKit.green)
+    }
+
+    private fun parseTime24(value: String): Pair<Int, Int> = try {
+        val parts = value.trim().split(":")
+        val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 19
+        val minute = parts.getOrNull(1)?.take(2)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
+        hour to minute
+    } catch (_: Exception) {
+        19 to 0
+    }
+
+    private fun formatTime12(value: String): String {
+        val (hour24, minute) = parseTime24(value)
+        val hour12 = when (val hour = hour24 % 12) {
+            0 -> 12
+            else -> hour
+        }
+        val period = if (hour24 >= 12) "p. m." else "a. m."
+        return String.format(Locale.US, "%d:%02d %s", hour12, minute, period)
     }
 
     private fun emptyCard(text: String): View = UiKit.card(this).apply {
@@ -366,6 +542,12 @@ class PlannerActivity : Activity() {
     private fun marginTop(value: Int): LinearLayout.LayoutParams {
         val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         params.topMargin = dp(value)
+        return params
+    }
+
+    private fun fixedTop(height: Int, top: Int): LinearLayout.LayoutParams {
+        val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(height))
+        params.topMargin = dp(top)
         return params
     }
 
