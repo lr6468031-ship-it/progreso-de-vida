@@ -23,14 +23,15 @@ import java.util.Locale
 import kotlin.math.abs
 
 class ProgressActivity : Activity() {
-    private val fondo = Color.parseColor("#0E130B")
-    private val superficie = Color.parseColor("#1B2516")
-    private val superficie2 = Color.parseColor("#26341F")
-    private val verde = Color.parseColor("#4CD964")
-    private val verdeSuave = Color.parseColor("#CFF5D5")
-    private val texto = Color.parseColor("#F5F7EA")
-    private val texto2 = Color.parseColor("#B9C6AD")
-    private val amarillo = Color.parseColor("#E1C75B")
+    private val fondo = Color.parseColor("#F6F7FB")
+    private val superficie = Color.parseColor("#FFFFFF")
+    private val superficie2 = Color.parseColor("#FFFFFF")
+    private val verde = Color.parseColor("#2F6FED")
+    private val verdeSuave = Color.parseColor("#1E5ED8")
+    private val texto = Color.parseColor("#101828")
+    private val texto2 = Color.parseColor("#667085")
+    private val amarillo = Color.parseColor("#B26A00")
+    private val borde = Color.parseColor("#D8DEE9")
 
     private lateinit var body: LinearLayout
     private lateinit var store: ProgressStore
@@ -41,8 +42,9 @@ class ProgressActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.BLACK
-        window.navigationBarColor = Color.BLACK
+        window.statusBarColor = fondo
+        window.navigationBarColor = fondo
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         store = ProgressStore(this)
         if (intent.getBooleanExtra(EXTRA_OPEN_TODAY, false)) {
             mode = Mode.DAY
@@ -107,7 +109,7 @@ class ProgressActivity : Activity() {
         text = label
         textSize = 11f
         isAllCaps = false
-        setTextColor(if (mode == target) Color.BLACK else verdeSuave)
+        setTextColor(if (mode == target) Color.WHITE else verde)
         background = pill(if (mode == target) verde else superficie2)
         stateListAnimator = null
         setOnClickListener {
@@ -444,7 +446,7 @@ class ProgressActivity : Activity() {
     }
 
     private fun primaryButton(label: String, action: () -> Unit) = Button(this).apply {
-        text = label; isAllCaps = false; textSize = 14f; setTextColor(Color.BLACK); setTypeface(typeface, Typeface.BOLD)
+        text = label; isAllCaps = false; textSize = 14f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD)
         background = pill(verde); stateListAnimator = null; setOnClickListener { action() }
     }
 
@@ -465,7 +467,7 @@ class ProgressActivity : Activity() {
     private fun number(value: Double): String = if (value % 1.0 == 0.0) value.toLong().toString() else String.format(Locale.US, "%.2f", value)
     private fun hours(value: Double): String = "${number(value)} h"
 
-    private fun cardBg() = GradientDrawable().apply { setColor(superficie); cornerRadius = dp(15).toFloat(); setStroke(dp(2), verde) }
+    private fun cardBg() = GradientDrawable().apply { setColor(superficie); cornerRadius = dp(15).toFloat(); setStroke(dp(1), borde) }
     private fun pill(color: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(13).toFloat(); if (color != verde) setStroke(dp(1), verde) }
     private fun weight(start: Int = 3, end: Int = 3) = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(start); marginEnd = dp(end) }
     private fun top(value: Int) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
