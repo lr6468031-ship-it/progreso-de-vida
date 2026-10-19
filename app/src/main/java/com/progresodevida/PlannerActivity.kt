@@ -27,12 +27,14 @@ import java.util.Locale
 
 class PlannerActivity : Activity() {
     private lateinit var store: PlannerStore
+    private lateinit var goalStore: SkillGoalStore
     private lateinit var body: LinearLayout
     private var month: Calendar = Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = PlannerStore(this)
+        goalStore = SkillGoalStore(this)
         window.statusBarColor = Color.WHITE
         window.navigationBarColor = Color.WHITE
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
@@ -76,26 +78,26 @@ class PlannerActivity : Activity() {
         top.addView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(UiKit.label(this@PlannerActivity, "Tareas", 31f, UiKit.ink, true))
-            addView(UiKit.label(this@PlannerActivity, "recurrentes", 31f, UiKit.blue, true))
+            addView(UiKit.label(this@PlannerActivity, "y metas", 31f, UiKit.blue, true))
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         body.addView(top)
 
-        body.addView(UiKit.label(this, "Organiza hábitos y tareas que se repiten. Toca el círculo para marcar el día como completado.", 13f, UiKit.muted), marginTop(6))
+        body.addView(UiKit.label(this, "Crea tareas simples o tareas conectadas a una meta. Las tareas de meta actualizan su avance automáticamente.", 13f, UiKit.muted), marginTop(6))
         body.addView(Button(this).apply {
-            text = "+ Nueva tarea recurrente"
+            text = "+ Tarea"
             isAllCaps = false
             textSize = 14f
             setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
             background = UiKit.rounded(this@PlannerActivity, UiKit.blue, 16)
             stateListAnimator = null
-            setOnClickListener { editTask(null) }
+            setOnClickListener { chooseTaskType() }
         }, marginTop(16))
 
         body.addView(UiKit.section(this, "Hoy"), marginTop(24))
         val scheduled = tasks.filter { store.scheduledFor(it, Calendar.getInstance()) }
         if (scheduled.isEmpty()) {
-            body.addView(emptyCard("No tienes tareas recurrentes para hoy."), marginTop(10))
+            body.addView(emptyCard("No tienes tareas para hoy."), marginTop(10))
         } else {
             scheduled.forEach { body.addView(taskCard(it, today), marginTop(10)) }
         }
@@ -110,8 +112,32 @@ class PlannerActivity : Activity() {
         body.addView(calendarCard(tasks), marginTop(10))
     }
 
+    private fun chooseTaskType() {
+        AlertDialog.Builder(this)
+            .setTitle("Nueva tarea")
+            .setItems(arrayOf("Tarea simple", "Tarea de meta")) { _, which ->
+                if (which == 0) {
+                    editTask(null, false)
+                } else {
+                    val activeGoals = goalStore.items().filter { it.status != "completado" }
+                    if (activeGoals.isEmpty()) {
+                        AlertDialog.Builder(this)
+                            .setTitle("Primero crea una meta")
+                            .setMessage("Para crear una tarea de meta necesitas al menos una meta o proyecto activo.")
+                            .setPositiveButton("Entendido", null)
+                            .show()
+                    } else {
+                        editTask(null, true)
+                    }
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     private fun taskCard(task: RecurringTask, date: String): View {
         val done = task.completedDates.contains(date)
+        val linkedGoal = if (task.goalId.isBlank()) null else goalStore.items().firstOrNull { it.id == task.goalId }
         return UiKit.card(this).apply {
             val row = LinearLayout(this@PlannerActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             val check = TextView(this@PlannerActivity).apply {
@@ -127,6 +153,7 @@ class PlannerActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 addView(UiKit.label(this@PlannerActivity, task.title, 17f, UiKit.ink, true))
                 addView(UiKit.label(this@PlannerActivity, "${formatTime12(task.time)}  ·  ${task.recurrence}", 12f, UiKit.muted))
+                if (linkedGoal != null) addView(UiKit.label(this@PlannerActivity, "🎯 ${linkedGoal.name}", 11f, UiKit.blue, true))
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(TextView(this@PlannerActivity).apply {
                 text = "⋮"
@@ -142,6 +169,7 @@ class PlannerActivity : Activity() {
                 setPadding(0, dp(12), 0, 0)
             }
             chips.addView(UiKit.pill(this@PlannerActivity, "📅 ${prettyDate(task.startDate)}"))
+            if (task.endDate.isNotBlank()) chips.addView(UiKit.pill(this@PlannerActivity, "→ ${prettyDate(task.endDate)}"), wrapStart(8))
             chips.addView(UiKit.pill(this@PlannerActivity, "⏰ ${formatTime12(task.time)}"), wrapStart(8))
             if (task.reminder) chips.addView(UiKit.pill(this@PlannerActivity, "🔔", UiKit.blueSoft, UiKit.blue), wrapStart(8))
             addView(chips)
@@ -279,7 +307,7 @@ class PlannerActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(task.title)
             .setItems(arrayOf("Editar", "Eliminar")) { _, which ->
-                if (which == 0) editTask(task) else {
+                if (which == 0) editTask(task, task.goalId.isNotBlank()) else {
                     store.delete(task.id)
                     render()
                 }
@@ -288,7 +316,10 @@ class PlannerActivity : Activity() {
             .show()
     }
 
-    private fun editTask(existing: RecurringTask?) {
+    private fun editTask(existing: RecurringTask?, linkToGoal: Boolean) {
+        val activeGoals = goalStore.items().filter { it.status != "completado" || it.id == existing?.goalId }
+        val initialGoalIndex = if (linkToGoal) activeGoals.indexOfFirst { it.id == existing?.goalId }.let { if (it >= 0) it else 0 } else -1
+        val initialGoal = activeGoals.getOrNull(initialGoalIndex)
         val initialTime = parseTime24(existing?.time ?: "19:00")
         val initialHour24 = initialTime.first
         val initialMinute = initialTime.second
@@ -307,8 +338,17 @@ class PlannerActivity : Activity() {
             background = UiKit.rounded(this@PlannerActivity, UiKit.surface, 24, UiKit.line)
         }
 
-        card.addView(UiKit.label(this, if (existing == null) "Nueva tarea recurrente" else "Editar tarea", 24f, UiKit.ink, true))
-        card.addView(UiKit.label(this, "Configura el hábito con el mismo estilo de Proyecto de vida.", 12f, UiKit.muted), marginTop(4))
+        card.addView(UiKit.label(this, if (existing == null) if (linkToGoal) "Nueva tarea de meta" else "Nueva tarea simple" else "Editar tarea", 24f, UiKit.ink, true))
+        card.addView(UiKit.label(this, if (linkToGoal) "Esta tarea actualizará automáticamente el progreso de la meta elegida." else "Tarea independiente, sin afectar el progreso de una meta.", 12f, UiKit.muted), marginTop(4))
+
+        val goalSpinner = if (linkToGoal && activeGoals.isNotEmpty()) Spinner(this).apply {
+            adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, activeGoals.map { it.name })
+            setSelection(initialGoalIndex.coerceAtLeast(0))
+        } else null
+        if (goalSpinner != null) {
+            card.addView(UiKit.label(this, "Meta / proyecto conectado", 12f, UiKit.muted, true), marginTop(18))
+            card.addView(goalSpinner, fixedTop(52, 5))
+        }
 
         val title = EditText(this).apply {
             hint = "Nombre de la tarea"
@@ -359,7 +399,8 @@ class PlannerActivity : Activity() {
         val categories = listOf("Deporte", "Música", "Hábitos", "Trabajo", "Metas", "Vida social")
         val category = Spinner(this).apply {
             adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, categories)
-            setSelection(categories.indexOf(existing?.category ?: "Hábitos").coerceAtLeast(0))
+            val defaultCategory = existing?.category ?: if (linkToGoal) "Metas" else "Hábitos"
+            setSelection(categories.indexOf(defaultCategory).coerceAtLeast(0))
         }
         card.addView(UiKit.label(this, "Categoría", 12f, UiKit.muted, true), marginTop(18))
         card.addView(category, fixedTop(52, 5))
@@ -395,6 +436,12 @@ class PlannerActivity : Activity() {
         }
         card.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true), marginTop(18))
         card.addView(recurrence, fixedTop(52, 5))
+
+        val startDate = dateField("Inicio · AAAA-MM-DD", existing?.startDate ?: initialGoal?.startDate ?: store.todayKey())
+        val endDate = dateField("Fin · AAAA-MM-DD", existing?.endDate ?: initialGoal?.endDate.orEmpty())
+        card.addView(UiKit.label(this, "Inicio y fin", 12f, UiKit.muted, true), marginTop(18))
+        card.addView(startDate, fixedTop(52, 5))
+        card.addView(endDate, fixedTop(52, 7))
 
         val reminder = CheckBox(this).apply {
             text = "Activar recordatorio"
@@ -457,6 +504,7 @@ class PlannerActivity : Activity() {
             }
             val storedTime = String.format(Locale.US, "%02d:%02d", selectedHour24, startMinute.value)
             val storedDuration = if (durationHour.value == 24) 1440 else durationHour.value * 60 + durationMinute.value
+            val selectedGoalId = if (linkToGoal && goalSpinner != null) activeGoals.getOrNull(goalSpinner.selectedItemPosition)?.id.orEmpty() else existing?.goalId.orEmpty().takeIf { linkToGoal }.orEmpty()
 
             store.save(
                 RecurringTask(
@@ -464,7 +512,9 @@ class PlannerActivity : Activity() {
                     title = title.text.toString().trim(),
                     time = storedTime,
                     recurrence = recurrence.selectedItem.toString(),
-                    startDate = existing?.startDate ?: store.todayKey(),
+                    startDate = startDate.text.toString().trim().ifBlank { store.todayKey() },
+                    endDate = endDate.text.toString().trim(),
+                    goalId = selectedGoalId,
                     reminder = reminder.isChecked,
                     completedDates = existing?.completedDates ?: emptySet(),
                     missedDates = existing?.missedDates ?: emptySet(),
@@ -480,6 +530,17 @@ class PlannerActivity : Activity() {
             dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.94f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         dialog.show()
+    }
+
+    private fun dateField(hintText: String, value: String): EditText = EditText(this).apply {
+        hint = hintText
+        setText(value)
+        inputType = InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_DATE
+        setTextColor(UiKit.ink)
+        setHintTextColor(UiKit.muted)
+        textSize = 14f
+        setPadding(dp(14), 0, dp(14), 0)
+        background = UiKit.rounded(this@PlannerActivity, Color.WHITE, 14, UiKit.line)
     }
 
     private fun wheelPicker(min: Int, max: Int, selected: Int): NumberPicker = NumberPicker(this).apply {
