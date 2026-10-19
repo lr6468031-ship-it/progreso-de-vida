@@ -156,7 +156,7 @@ class PlannerActivity : Activity() {
             val key = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(day.time)
             val scheduled = tasks.filter { store.scheduledFor(it, day) }
             val allDone = scheduled.isNotEmpty() && scheduled.all { it.completedDates.contains(key) }
-            val missed = day.before(Calendar.getInstance()) && scheduled.isNotEmpty() && !allDone
+            val missed = key < store.todayKey() && scheduled.isNotEmpty() && !allDone
             val color = when {
                 allDone -> UiKit.green
                 missed -> UiKit.red
@@ -245,7 +245,7 @@ class PlannerActivity : Activity() {
             val key = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
             val scheduled = tasks.filter { store.scheduledFor(it, cal) }
             val allDone = scheduled.isNotEmpty() && scheduled.all { it.completedDates.contains(key) }
-            val anyMissed = scheduled.isNotEmpty() && cal.before(Calendar.getInstance()) && !allDone
+            val anyMissed = scheduled.isNotEmpty() && key < store.todayKey() && !allDone
             val isToday = key == store.todayKey()
             val fill = when {
                 allDone -> UiKit.green
@@ -295,9 +295,21 @@ class PlannerActivity : Activity() {
             val idx = recurrenceOptions.indexOf(existing?.recurrence)
             if (idx >= 0) setSelection(idx)
         }
+        val categories = listOf("Deporte", "Música", "Hábitos", "Trabajo", "Metas", "Vida social")
+        val category = Spinner(this).apply {
+            adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, categories)
+            setSelection(categories.indexOf(existing?.category ?: "Hábitos").coerceAtLeast(0))
+        }
+        val duration = EditText(this).apply {
+            hint = "Duración en minutos (opcional)"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            if ((existing?.durationMinutes ?: 0) > 0) setText(existing!!.durationMinutes.toString())
+        }
         val reminder = CheckBox(this).apply { text = "Activar recordatorio"; isChecked = existing?.reminder ?: true }
         box.addView(title)
         box.addView(time)
+        box.addView(category)
+        box.addView(duration)
         box.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true))
         box.addView(recurrence)
         box.addView(reminder)
@@ -322,7 +334,10 @@ class PlannerActivity : Activity() {
                         recurrence = recurrence.selectedItem.toString(),
                         startDate = existing?.startDate ?: store.todayKey(),
                         reminder = reminder.isChecked,
-                        completedDates = existing?.completedDates ?: emptySet()
+                        completedDates = existing?.completedDates ?: emptySet(),
+                        missedDates = existing?.missedDates ?: emptySet(),
+                        category = category.selectedItem.toString(),
+                        durationMinutes = duration.text.toString().toIntOrNull()?.coerceIn(0, 1440) ?: 0
                     )
                 )
                 dialog.dismiss()

@@ -67,6 +67,7 @@ jobs:
           script: |
             adb install -r smoke-apk/app-debug.apk
             adb logcat -c
-            adb shell am start -n com.progresodevida/.MainActivity || true
+            adb shell am start -W -n com.progresodevida/.MainActivity
             sleep 5
+            adb logcat -d -s AndroidRuntime
             adb shell pidof com.progresodevida | grep -q '[0-9]'
