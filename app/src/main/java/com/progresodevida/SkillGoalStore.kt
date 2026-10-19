@@ -33,6 +33,7 @@ class SkillGoalStore(context: Context) {
                 type = item.optString("type", "Habilidad"),
                 name = item.optString("name", "Nueva meta"),
                 area = item.optString("area", "Otro"),
+                period = normalizePeriod(item.optString("period", "Año")),
                 target = item.optString("target", ""),
                 targetHours = item.optDouble("targetHours", 0.0).coerceAtLeast(0.0),
                 deadline = item.optString("deadline", ""),
@@ -50,11 +51,13 @@ class SkillGoalStore(context: Context) {
         val source = load("skill_goals")
         val id = value.id.ifBlank { "GOAL-${System.currentTimeMillis()}" }
         val created = value.createdAt.ifBlank { dayFormat.format(Date()) }
+        val period = normalizePeriod(value.period)
         val json = JSONObject()
             .put("id", id)
             .put("type", value.type.ifBlank { "Habilidad" })
             .put("name", value.name.trim())
             .put("area", value.area.ifBlank { "Otro" })
+            .put("period", period)
             .put("target", value.target.trim())
             .put("targetHours", value.targetHours.coerceAtLeast(0.0))
             .put("deadline", value.deadline.trim())
@@ -73,7 +76,7 @@ class SkillGoalStore(context: Context) {
         }
         if (!replaced) source.put(json)
         save("skill_goals", source)
-        return value.copy(id = id, createdAt = created)
+        return value.copy(id = id, period = period, createdAt = created)
     }
 
     fun deleteItem(id: String): Boolean {
@@ -151,6 +154,12 @@ class SkillGoalStore(context: Context) {
     }
 
     fun sessionsFor(goalId: String): List<SkillSession> = sessions().filter { it.goalId == goalId }
+
+    private fun normalizePeriod(value: String): String = when (value.trim().lowercase(Locale.ROOT)) {
+        "semana", "semanal" -> "Semana"
+        "mes", "mensual" -> "Mes"
+        else -> "Año"
+    }
 }
 
 data class SkillGoal(
@@ -158,6 +167,7 @@ data class SkillGoal(
     val type: String = "Habilidad",
     val name: String,
     val area: String = "Otro",
+    val period: String = "Año",
     val target: String = "",
     val targetHours: Double = 0.0,
     val deadline: String = "",
