@@ -428,14 +428,44 @@ class PlannerActivity : Activity() {
         }
         card.addView(durationRow, marginTop(8))
 
-        val recurrenceOptions = listOf("Todos los días", "Días laborables", "Fines de semana", "Lun, mié, vie", "Mar, jue, sáb")
-        val recurrence = Spinner(this).apply {
-            adapter = ArrayAdapter(this@PlannerActivity, android.R.layout.simple_spinner_dropdown_item, recurrenceOptions)
-            val idx = recurrenceOptions.indexOf(existing?.recurrence)
-            if (idx >= 0) setSelection(idx)
-        }
+        val selectedDays = TaskWeekdays.parse(existing?.recurrence ?: "Todos los días").toMutableSet()
         card.addView(UiKit.label(this, "Repetir", 12f, UiKit.muted, true), marginTop(18))
-        card.addView(recurrence, fixedTop(52, 5))
+        card.addView(UiKit.label(this, "Toca los días en que harás esta tarea.", 11f, UiKit.muted), marginTop(3))
+        val dayError = UiKit.label(this, "Selecciona al menos un día.", 12f, UiKit.red).apply {
+            visibility = View.GONE
+        }
+        // Two columns keep full day names and comfortable touch targets on phones.
+        TaskWeekdays.names.indices.chunked(2).forEach { indices ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            indices.forEach { index ->
+                val day = TaskWeekdays.days[index]
+                val button = android.widget.ToggleButton(this).apply {
+                    textOn = "✓ " + TaskWeekdays.names[index]
+                    textOff = TaskWeekdays.names[index]
+                    isAllCaps = false
+                    textSize = 14f
+                    setPadding(dp(4), 0, dp(4), 0)
+                    stateListAnimator = null
+                    isChecked = day in selectedDays
+                }
+                fun refreshDay() {
+                    button.setTextColor(if (button.isChecked) Color.WHITE else UiKit.green)
+                    button.background = UiKit.rounded(this, if (button.isChecked) UiKit.green else UiKit.greenSoft, 14, UiKit.green)
+                }
+                refreshDay()
+                button.setOnCheckedChangeListener { _, checked ->
+                    if (checked) selectedDays.add(day) else selectedDays.remove(day)
+                    dayError.visibility = if (selectedDays.isEmpty()) View.VISIBLE else View.GONE
+                    refreshDay()
+                }
+                row.addView(button, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                    if (index % 2 == 0) marginEnd = dp(4) else marginStart = dp(4)
+                })
+            }
+            if (indices.size == 1) row.addView(View(this), LinearLayout.LayoutParams(0, dp(52), 1f))
+            card.addView(row, marginTop(8))
+        }
+        card.addView(dayError, marginTop(6))
 
         val startDate = dateField("Inicio · AAAA-MM-DD", existing?.startDate ?: initialGoal?.startDate ?: store.todayKey())
         val endDate = dateField("Fin · AAAA-MM-DD", existing?.endDate ?: initialGoal?.endDate.orEmpty())
@@ -495,6 +525,12 @@ class PlannerActivity : Activity() {
                 return@setOnClickListener
             }
 
+            if (selectedDays.isEmpty()) {
+                dayError.visibility = View.VISIBLE
+                scroll.smoothScrollTo(0, dayError.top)
+                return@setOnClickListener
+            }
+
             val selectedHour12 = startHour.value
             val selectedHour24 = when {
                 isPm && selectedHour12 == 12 -> 12
@@ -511,7 +547,7 @@ class PlannerActivity : Activity() {
                     id = existing?.id.orEmpty(),
                     title = title.text.toString().trim(),
                     time = storedTime,
-                    recurrence = recurrence.selectedItem.toString(),
+                    recurrence = TaskWeekdays.format(selectedDays),
                     startDate = startDate.text.toString().trim().ifBlank { store.todayKey() },
                     endDate = endDate.text.toString().trim(),
                     goalId = selectedGoalId,

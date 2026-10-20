@@ -107,13 +107,7 @@ class PlannerStore(context: Context) {
         val key = dayFormat.format(cal.time)
         if (task.startDate.isNotBlank() && key < task.startDate) return false
         if (task.endDate.isNotBlank() && key > task.endDate) return false
-        return when (task.recurrence) {
-            "Lun, mié, vie" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.MONDAY, Calendar.WEDNESDAY, Calendar.FRIDAY)
-            "Mar, jue, sáb" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.TUESDAY, Calendar.THURSDAY, Calendar.SATURDAY)
-            "Días laborables" -> cal.get(Calendar.DAY_OF_WEEK) !in setOf(Calendar.SATURDAY, Calendar.SUNDAY)
-            "Fines de semana" -> cal.get(Calendar.DAY_OF_WEEK) in setOf(Calendar.SATURDAY, Calendar.SUNDAY)
-            else -> true
-        }
+        return cal.get(Calendar.DAY_OF_WEEK) in TaskWeekdays.parse(task.recurrence)
     }
 
     private fun parseDate(value: String): Calendar? = try {
@@ -169,4 +163,25 @@ data class GoalTaskProgress(
 ) {
     val remaining: Int get() = (total - completed).coerceAtLeast(0)
     val percent: Int get() = if (total <= 0) 0 else (completed * 100 / total).coerceIn(0, 100)
+}
+
+/** Keeps existing stored presets compatible with arbitrary selected weekdays. */
+object TaskWeekdays {
+    val days = listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+        Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY)
+    val names = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+    private val labels = listOf("Lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+
+    fun parse(value: String): Set<Int> = when (value) {
+        "Todos los días" -> days.toSet()
+        "Días laborables" -> days.take(5).toSet()
+        "Fines de semana" -> days.takeLast(2).toSet()
+        else -> {
+            val tokens = value.lowercase(Locale.ROOT).split(",").map { it.trim() }.toSet()
+            days.filterIndexed { index, _ -> labels[index].lowercase(Locale.ROOT) in tokens }.toSet()
+        }
+    }
+
+    fun format(selected: Set<Int>): String = if (days.all { it in selected }) "Todos los días"
+        else days.indices.filter { days[it] in selected }.joinToString(", ") { labels[it] }
 }
