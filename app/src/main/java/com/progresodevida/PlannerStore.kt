@@ -28,14 +28,17 @@ class PlannerStore(context: Context) {
                 title = item.optString("title", "Nueva tarea"),
                 time = item.optString("time", "19:00"),
                 recurrence = item.optString("recurrence", "Todos los días"),
-                startDate = item.optString("startDate", todayKey()),
+                startDate = item.optString("startDate", ""),
                 endDate = item.optString("endDate", ""),
                 goalId = item.optString("goalId", ""),
                 reminder = item.optBoolean("reminder", true),
                 completedDates = done,
                 category = item.optString("category", "Hábitos"),
-                durationMinutes = item.optInt("durationMinutes", 0),
-                missedDates = item.optJSONArray("missedDates").let { a -> (0 until (a?.length() ?: 0)).map { a!!.optString(it) }.toSet() }
+                durationMinutes = item.optInt("durationMinutes", 0).coerceAtLeast(0),
+                timesPerDay = item.optInt("timesPerDay", 1).coerceIn(1, 20),
+                missedDates = item.optJSONArray("missedDates").let { a ->
+                    (0 until (a?.length() ?: 0)).map { a!!.optString(it) }.filter { it.isNotBlank() }.toSet()
+                }
             )
         }
         return result.sortedBy { it.time }
@@ -44,7 +47,12 @@ class PlannerStore(context: Context) {
     fun save(task: RecurringTask): RecurringTask {
         val all = tasks().toMutableList()
         val id = task.id.ifBlank { "TASK-${System.currentTimeMillis()}" }
-        val clean = task.copy(id = id, title = task.title.trim().ifBlank { "Nueva tarea" })
+        val clean = task.copy(
+            id = id,
+            title = task.title.trim().ifBlank { "Nueva tarea" },
+            durationMinutes = task.durationMinutes.coerceAtLeast(0),
+            timesPerDay = task.timesPerDay.coerceIn(1, 20)
+        )
         val idx = all.indexOfFirst { it.id == id }
         if (idx >= 0) all[idx] = clean else all += clean
         persist(all)
@@ -104,10 +112,17 @@ class PlannerStore(context: Context) {
     }
 
     fun scheduledFor(task: RecurringTask, cal: Calendar): Boolean {
+        val weekdays = TaskWeekdays.parse(task.recurrence)
+        if (cal.get(Calendar.DAY_OF_WEEK) !in weekdays) return false
+
+        // Hábitos no caducan: viven únicamente en los días de la semana elegidos.
+        // Esto hace que la pantalla Hoy y la pantalla Hábitos usen exactamente la misma regla.
+        if (task.category.equals("Hábitos", ignoreCase = true)) return true
+
         val key = dayFormat.format(cal.time)
         if (task.startDate.isNotBlank() && key < task.startDate) return false
         if (task.endDate.isNotBlank() && key > task.endDate) return false
-        return cal.get(Calendar.DAY_OF_WEEK) in TaskWeekdays.parse(task.recurrence)
+        return true
     }
 
     private fun parseDate(value: String): Calendar? = try {
@@ -135,6 +150,7 @@ class PlannerStore(context: Context) {
                     .put("completedDates", done)
                     .put("category", task.category)
                     .put("durationMinutes", task.durationMinutes)
+                    .put("timesPerDay", task.timesPerDay)
                     .put("missedDates", JSONArray(task.missedDates.sorted()))
             )
         }
@@ -154,6 +170,7 @@ data class RecurringTask(
     val completedDates: Set<String> = emptySet(),
     val category: String = "Hábitos",
     val durationMinutes: Int = 0,
+    val timesPerDay: Int = 1,
     val missedDates: Set<String> = emptySet()
 )
 
@@ -167,8 +184,10 @@ data class GoalTaskProgress(
 
 /** Keeps existing stored presets compatible with arbitrary selected weekdays. */
 object TaskWeekdays {
-    val days = listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
-        Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY)
+    val days = listOf(
+        Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+        Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY
+    )
     val names = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
     private val labels = listOf("Lun", "mar", "mié", "jue", "vie", "sáb", "dom")
 
@@ -182,6 +201,9 @@ object TaskWeekdays {
         }
     }
 
-    fun format(selected: Set<Int>): String = if (days.all { it in selected }) "Todos los días"
-        else days.indices.filter { days[it] in selected }.joinToString(", ") { labels[it] }
+    fun format(selected: Set<Int>): String = if (days.all { it in selected }) {
+        "Todos los días"
+    } else {
+        days.indices.filter { days[it] in selected }.joinToString(", ") { labels[it] }
+    }
 }
